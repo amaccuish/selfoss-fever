@@ -75,7 +75,7 @@ if (isset($_POST['mark']) && isset($_POST['as'])) {
 }
 if (isset($_GET['items'])) {
 
-	$json = file_get_contents($selfoss_url . 'items?items=200&type=unread');
+	$json = file_get_contents($selfoss_url . 'items?items=200');
 
 	$items = json_decode($json, true);
 
