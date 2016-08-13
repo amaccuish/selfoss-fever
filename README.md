@@ -15,3 +15,6 @@ I've only tested Reeder for iOS.
 
 # Current limitations
 1. Favicons are unreliable; some clients implement the favicon part of the api, and should work fine; Reeder, the client I use, decides to contact the domain specified in site_url of a feed and grab the favicon that way. Sadly this often doesn't work because the URL is a feed proxy. Selfoss could provide the URL where it found it's favicon over it's API and this could be passed to the client. It wouldn't be great to lookup endpoints ourself manually as we'd have to store them somewhere for performance.
+
+# Technical bits
+- Right now we're just querying the selfoss api and transforming requests and responses so they work for each end. This is ultimately inefficient, selfoss is having to build a large array in memory, convert it to json. We then create a socket, retrieve the JSON object, convert it back to a PHP object, make changes and then finally convert back to JSON for output. It would be better to use selfoss directly, I however didn't know how to do this in a clean way as a 'plugin' to selfoss. Also, the selfoss api already provides useful things like filtering for unread items which I'd have to reimplement, probably badly aha.
