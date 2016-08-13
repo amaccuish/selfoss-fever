@@ -11,6 +11,7 @@ if (!isset($_GET['api'])) {
 	die();
 }
 
+// Perform authentication
 if (isset($_POST['api_key'])) {
 	$api_key = md5($fever_usr.':'.$fever_pwd);
 	if ($api_key != $_POST['api_key']) {
@@ -21,17 +22,16 @@ else {
 	die('{"api_version": 3, "auth": 0}');
 }
 
+// Write operations
 if (isset($_POST['mark']) && isset($_POST['as'])) {
 	if ($_POST['mark'] == 'item' && $_POST['as'] == 'read') {
 		$url = $selfoss_url . 'mark/' . $_POST['id'];
 		$data = array('' => '');
 
-		// use key 'http' even if you send the request to https://...
 		$options = array(
 			'http' => array(
 				'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
 				'method'  => 'POST',
-//				'content' => http_build_query($data)
 			)
 		);
 
@@ -43,12 +43,10 @@ if (isset($_POST['mark']) && isset($_POST['as'])) {
 		$url = $selfoss_url . 'starr/' . $_POST['id'];
 		$data = array('' => '');
 
-		// use key 'http' even if you send the request to https://...
 		$options = array(
 			'http' => array(
 				'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
 				'method'  => 'POST',
-//				'content' => http_build_query($data)
 			)
 		);
 
@@ -60,12 +58,10 @@ if (isset($_POST['mark']) && isset($_POST['as'])) {
 		$url = $selfoss_url . 'unstarr/' . $_POST['id'];
 		$data = array('' => '');
 
-		// use key 'http' even if you send the request to https://...
 		$options = array(
 			'http' => array(
 				'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
 				'method'  => 'POST',
-//				'content' => http_build_query($data)
 			)
 		);
 
@@ -73,6 +69,8 @@ if (isset($_POST['mark']) && isset($_POST['as'])) {
 		$result = file_get_contents($url, false, $context);
 	}
 }
+
+// Send items
 if (isset($_GET['items'])) {
 
 	$json = file_get_contents($selfoss_url . 'items?items=200');
@@ -141,20 +139,11 @@ if (isset($_GET['items'])) {
 	$object = array('total_items' => $noOfItems, 'items' => $items);
 }
 
+// Send just the ids of unread items
 if (isset($_GET['unread_item_ids'])) {
 	$json = file_get_contents($selfoss_url . 'items?type=unread');
 	$items = json_decode($json, true);
-/*
-  $filter_array = array(
-  	'unread' => 1
-	);
 
-	// filter the array
-	$items= array_filter($items, function ($val_array) use ($filter_array) {
-    $intersection = array_intersect_assoc($val_array, $filter_array);
-    return (count($intersection)) === count($filter_array);
-	});
-*/
 	// Get ids
 	foreach ($items as $key => $value) {
 		$items_list[] = $value['id'];
@@ -165,6 +154,7 @@ if (isset($_GET['unread_item_ids'])) {
 	$object = array('unread_item_ids' => $items_list);
 }
 
+// Send just the ids of saved/starred items
 if (isset($_GET['saved_item_ids'])) {
 	$json = file_get_contents($selfoss_url . 'items?type=starred');
 	$items = json_decode($json, true);
@@ -179,7 +169,7 @@ if (isset($_GET['saved_item_ids'])) {
 	$object = array('saved_item_ids' => $items_list);
 }
 
-
+// Send either groups (selfoss:tags) or feeds (selfoss:sources) with feed_groups (tag membership)
 if (isset($_GET['groups']) OR isset($_GET['feeds'])) {
 	$json = file_get_contents($selfoss_url . 'tags');
 	$groups = json_decode($json, true);
@@ -241,6 +231,7 @@ if (isset($_GET['groups']) OR isset($_GET['feeds'])) {
 	}
 }
 
+// Send favicons not all clients support this method
 if (isset($_GET['favicons'])) {
 	$json = file_get_contents($selfoss_url . 'sources/list');
 	$feeds = json_decode($json, true);
@@ -254,7 +245,7 @@ if (isset($_GET['favicons'])) {
 			$favicons[] = $obj;
 		}
 	}
-// print_r($favicons);
+
 	$object = array('favicons' => $favicons);
 }
 
