@@ -18,6 +18,7 @@ if (isset($_POST['api_key'])) {
 		die('{"api_version": 3, "auth": 0}');
 	}
 }
+// Client did not provide api_key
 else {
 	die('{"api_version": 3, "auth": 0}');
 }
@@ -73,39 +74,78 @@ if (isset($_POST['mark']) && isset($_POST['as'])) {
 // Send items
 if (isset($_GET['items'])) {
 
-	$json = file_get_contents($selfoss_url . 'items?items=200');
+	$items = [];
+	$count = 0;
+	$finished = false;
+	
+	do {
+		if ($count == 0) {
+			$json = file_get_contents($selfoss_url . 'items?items=200');
+		}
+		else {
+			$offset = $count * 200;
+			$json = file_get_contents($selfoss_url . 'items?items=200&offset=' . $offset);
+		}
+		$preItems = json_decode($json, true);
+		$items = array_merge($items, $preItems);
+		$noOfItems = count($preItems);
 
-	$items = json_decode($json, true);
+		if ($noOfItems != 200) {
+			$finished = true;
+		}
+		$count++;
+	} while ($finished == false);
 
-	// Get noOfItems before further filtering
-	$noOfItems = count($items);
+	$noOfItems = sizeof($items);
 
-	foreach ( $items as $k=>$v ) {
+	// Perform filtering
+	if (isset($_GET['since_id'])) {
+		$since_id 	= isset($_GET["since_id"]) ? intval($_GET["since_id"]) : 0;
+		$filtered = false;
+		foreach ( $items as $k=>$v ) {
+			if ($items[$k]['id'] < ($since_id+1)) {
+				$filtered = true;
+			}
+			else {
+				$wantedItems[] = $items[$k];
+				$filtered = true;
+			}
+		}
+		if ($filtered == true) {
+			$items = $wantedItems;
+		}
+	}
+
+	foreach ( $items as $k=>$v) {
 		$items[$k] ['id'] = (int)$items[$k] ['id'];
 		// content -> html
 		$items[$k] ['html'] = $items[$k] ['content'];
 		unset($items[$k]['content']);
 
 		// source -> feed_id
-    $items[$k] ['feed_id'] = (int)$items[$k] ['source'];
-    unset($items[$k]['source']);
+		$items[$k] ['feed_id'] = (int)$items[$k] ['source'];
+		unset($items[$k]['source']);
 
 		// datetime -> created_on_time as unix timestamp
 		$items[$k] ['created_on_time'] = (int)strtotime($items[$k] ['datetime']);
-    unset($items[$k]['datetime']);
+		unset($items[$k]['datetime']);
 
 		// link -> url
-    $items[$k] ['url'] = $items[$k] ['link'];
-    unset($items[$k]['link']);
+		$items[$k] ['url'] = $items[$k] ['link'];
+		unset($items[$k]['link']);
 
-    // unread -> is_read
-    $items[$k] ['is_read'] = $items[$k] ['unread'];
-    unset($items[$k]['unread']);
+		// unread -> is_read
+		$items[$k] ['is_read'] = $items[$k] ['unread'];
+		unset($items[$k]['unread']);
 		$items[$k] ['is_read'] = (int)!$items[$k] ['is_read'];
 
 		// unread -> is_read
 		$items[$k] ['is_saved'] = (int)$items[$k] ['starred'];
 		unset($items[$k]['starred']);
+
+		if (empty($items[$k]['author'])) {
+			$items[$k]['author'] = "Unknown";
+		}
 
 		// Unused attributes
 		unset($items[$k]['icon']);
@@ -130,12 +170,7 @@ if (isset($_GET['items'])) {
 		}
 	}
 
-	// We don't implement this
-	if (isset($_GET['since_id'])) {
-		$items = array();
-	}
-
-
+	
 	$object = array('total_items' => $noOfItems, 'items' => $items);
 }
 
@@ -151,6 +186,11 @@ if (isset($_GET['unread_item_ids'])) {
 
 	// Needs to be comma separated list
 	$items_list = implode (",", $items_list);
+	/*
+	if (empty($items_list)) {
+		$items_list = [];
+	}
+	*/
 	$object = array('unread_item_ids' => $items_list);
 }
 
@@ -177,12 +217,12 @@ if (isset($_GET['groups']) OR isset($_GET['feeds'])) {
 	$feeds = json_decode($json, true);
 
 	foreach ( $groups as $k=>$v ) {
-    $groups[$k] ['title'] = $groups[$k] ['tag'];
+    	$groups[$k] ['title'] = $groups[$k] ['tag'];
 
 		$id = hexdec(substr(sha1($groups[$k]['color']), 0, 14));
 		$groups[$k]['id'] = $id;
-    unset($groups[$k]['color']);
-    unset($groups[$k]['unread']);
+    	unset($groups[$k]['color']);
+    	unset($groups[$k]['unread']);
 
 		foreach ( $feeds as $x=>$z ) {
 			if ($z['tags'] == $groups[$k]['tag']){
