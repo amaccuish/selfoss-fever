@@ -2,7 +2,7 @@
 API bridge between Selfoss and Fever
 
 # What works
-I've only tested Reeder for iOS.
+I've only tested Reeder for iOS and macOS.
 
 1. Syncing
 2. Mark as read/unread starred/unstarred
