@@ -77,30 +77,31 @@ if (isset($_GET['items'])) {
 	$items = [];
 	$count = 0;
 	$finished = false;
-	
-	do {
-		if ($count == 0) {
-			$json = file_get_contents($selfoss_url . 'items?items=200');
-		}
-		else {
-			$offset = $count * 200;
-			$json = file_get_contents($selfoss_url . 'items?items=200&offset=' . $offset);
-		}
-		$preItems = json_decode($json, true);
-		$items = array_merge($items, $preItems);
-		$noOfItems = count($preItems);
-
-		if ($noOfItems != 200) {
-			$finished = true;
-		}
-		$count++;
-	} while ($finished == false);
-
-	$noOfItems = sizeof($items);
 
 	// Perform filtering
 	if (isset($_GET['since_id'])) {
 		$since_id 	= isset($_GET["since_id"]) ? intval($_GET["since_id"]) : 0;
+
+		do {
+			if ($count == 0) {
+				$json = file_get_contents($selfoss_url . 'items?items=200');
+			}
+			else {
+				$offset = $count * 200;
+				$json = file_get_contents($selfoss_url . 'items?items=200&offset=' . $offset);
+			}
+			$preItems = json_decode($json, true);
+			$items = array_merge($items, $preItems);
+			$noOfItems = count($preItems);
+
+			foreach ( $items as $k=>$v ) {
+				if ($items[$k]['id'] == ($since_id)) {
+					$finished = true;
+				}
+			}
+			$count++;
+		} while ($finished == false);
+
 		$filtered = false;
 		foreach ( $items as $k=>$v ) {
 			if ($items[$k]['id'] < ($since_id+1)) {
@@ -115,6 +116,27 @@ if (isset($_GET['items'])) {
 			$items = $wantedItems;
 		}
 	}
+	else {
+		do {
+			if ($count == 0) {
+				$json = file_get_contents($selfoss_url . 'items?items=200');
+			}
+			else {
+				$offset = $count * 200;
+				$json = file_get_contents($selfoss_url . 'items?items=200&offset=' . $offset);
+			}
+			$preItems = json_decode($json, true);
+			$items = array_merge($items, $preItems);
+			$noOfItems = count($preItems);
+
+			if ($noOfItems != 200) {
+				$finished = true;
+			}
+			$count++;
+		} while ($finished == false);
+	}
+
+	$noOfItems = sizeof($items);
 
 	foreach ( $items as $k=>$v) {
 		$items[$k] ['id'] = (int)$items[$k] ['id'];
