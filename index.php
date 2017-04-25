@@ -1,14 +1,16 @@
 <?php
 
+require('fever.php');
+
 header('Content-Type: application/json');
 
 // URL of Selfoss instance, WITH leading slash
-$selfoss_url = "";
+$GLOBALS['selfoss_url'] = "";
 $fever_usr = "admin@test.com";
 $fever_pwd = "password";
 
 if (!isset($_GET['api'])) {
-	die();
+	die('{"api_version": 3, "auth": 0}');
 }
 
 // Perform authentication
@@ -25,49 +27,18 @@ else {
 
 // Write operations
 if (isset($_POST['mark']) && isset($_POST['as'])) {
-	if ($_POST['mark'] == 'item' && $_POST['as'] == 'read') {
-		$url = $selfoss_url . 'mark/' . $_POST['id'];
-		$data = array('' => '');
+	if ($_POST['mark'] == 'item') {
+		if ($_POST['as'] == 'read') {
+			mark("mark", $_POST['id']);
+		}
 
-		$options = array(
-			'http' => array(
-				'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
-				'method'  => 'POST',
-			)
-		);
+		if ($_POST['as'] == 'saved') {
+			mark("starr", $_POST['id']);
+		}
 
-		$context = stream_context_create($options);
-		$result = file_get_contents($url, false, $context);
-	}
-
-	if ($_POST['mark'] == 'item' && $_POST['as'] == 'saved') {
-		$url = $selfoss_url . 'starr/' . $_POST['id'];
-		$data = array('' => '');
-
-		$options = array(
-			'http' => array(
-				'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
-				'method'  => 'POST',
-			)
-		);
-
-		$context = stream_context_create($options);
-		$result = file_get_contents($url, false, $context);
-	}
-
-	if ($_POST['mark'] == 'item' && $_POST['as'] == 'unsaved') {
-		$url = $selfoss_url . 'unstarr/' . $_POST['id'];
-		$data = array('' => '');
-
-		$options = array(
-			'http' => array(
-				'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
-				'method'  => 'POST',
-			)
-		);
-
-		$context = stream_context_create($options);
-		$result = file_get_contents($url, false, $context);
+		if ($_POST['as'] == 'unsaved') {
+			mark("unstarr", $_POST['id']);
+		}
 	}
 }
 
@@ -84,11 +55,11 @@ if (isset($_GET['items'])) {
 
 		do {
 			if ($count == 0) {
-				$json = file_get_contents($selfoss_url . 'items?items=200');
+				$json = file_get_contents($GLOBALS['selfoss_url'] . 'items?items=200');
 			}
 			else {
 				$offset = $count * 200;
-				$json = file_get_contents($selfoss_url . 'items?items=200&offset=' . $offset);
+				$json = file_get_contents($GLOBALS['selfoss_url'] . 'items?items=200&offset=' . $offset);
 			}
 			$preItems = json_decode($json, true);
 			$items = array_merge($items, $preItems);
@@ -104,26 +75,26 @@ if (isset($_GET['items'])) {
 
 		$filtered = false;
 		foreach ( $items as $k=>$v ) {
-			if ($items[$k]['id'] < ($since_id+1)) {
+			if ($items[$k]['id'] > ($since_id)) {
 				$filtered = true;
-			}
-			else {
 				$wantedItems[] = $items[$k];
-				$filtered = true;
 			}
 		}
-		if ($filtered == true) {
+		if ($filtered == true && isset($wantedItems)) {
 			$items = $wantedItems;
+		}
+		else {
+			$items = [];
 		}
 	}
 	else {
 		do {
 			if ($count == 0) {
-				$json = file_get_contents($selfoss_url . 'items?items=200');
+				$json = file_get_contents($GLOBALS['selfoss_url'] . 'items?items=200');
 			}
 			else {
 				$offset = $count * 200;
-				$json = file_get_contents($selfoss_url . 'items?items=200&offset=' . $offset);
+				$json = file_get_contents($GLOBALS['selfoss_url'] . 'items?items=200&offset=' . $offset);
 			}
 			$preItems = json_decode($json, true);
 			$items = array_merge($items, $preItems);
@@ -137,6 +108,11 @@ if (isset($_GET['items'])) {
 	}
 
 	$noOfItems = sizeof($items);
+
+	if ( $noOfItems == 0 ) {
+		$object = array('total_items' => $noOfItems, 'items' => $items);
+	}
+	else {
 
 	foreach ( $items as $k=>$v) {
 		$items[$k] ['id'] = (int)$items[$k] ['id'];
@@ -178,7 +154,7 @@ if (isset($_GET['items'])) {
 		unset($items[$k]['sourcetitle']);
 
 	}
-
+}
 	if (isset($_GET['with_ids'])) {
 		$with_ids = urldecode($_GET['with_ids']);
 		$with_ids = explode(',', $with_ids);
@@ -192,50 +168,25 @@ if (isset($_GET['items'])) {
 		}
 	}
 
-	
+
 	$object = array('total_items' => $noOfItems, 'items' => $items);
 }
 
 // Send just the ids of unread items
 if (isset($_GET['unread_item_ids'])) {
-	$json = file_get_contents($selfoss_url . 'items?type=unread');
-	$items = json_decode($json, true);
-
-	// Get ids
-	foreach ($items as $key => $value) {
-		$items_list[] = $value['id'];
-	}
-
-	// Needs to be comma separated list
-	$items_list = implode (",", $items_list);
-	/*
-	if (empty($items_list)) {
-		$items_list = [];
-	}
-	*/
-	$object = array('unread_item_ids' => $items_list);
+	$object = getUnreadItemIds();
 }
 
 // Send just the ids of saved/starred items
 if (isset($_GET['saved_item_ids'])) {
-	$json = file_get_contents($selfoss_url . 'items?type=starred');
-	$items = json_decode($json, true);
-
-	// Get ids
-	foreach ($items as $key => $value) {
-		$items_list[] = $value['id'];
-	}
-
-	// Needs to be comma separated list
-	$items_list = implode (",", $items_list);
-	$object = array('saved_item_ids' => $items_list);
+	$object = getSavedItemIds();
 }
 
 // Send either groups (selfoss:tags) or feeds (selfoss:sources) with feed_groups (tag membership)
 if (isset($_GET['groups']) OR isset($_GET['feeds'])) {
-	$json = file_get_contents($selfoss_url . 'tags');
+	$json = file_get_contents($GLOBALS['selfoss_url'] . 'tags');
 	$groups = json_decode($json, true);
-	$json = file_get_contents($selfoss_url . 'sources/list');
+	$json = file_get_contents($GLOBALS['selfoss_url'] . 'sources/list');
 	$feeds = json_decode($json, true);
 
 	foreach ( $groups as $k=>$v ) {
@@ -293,22 +244,9 @@ if (isset($_GET['groups']) OR isset($_GET['feeds'])) {
 	}
 }
 
-// Send favicons not all clients support this method
+// Send favicons; not all clients support this method
 if (isset($_GET['favicons'])) {
-	$json = file_get_contents($selfoss_url . 'sources/list');
-	$feeds = json_decode($json, true);
-
-	foreach ( $feeds as $k=>$v ) {
-		if (!empty($v['icon'])) {
-			$favicon_id = (int)$v['id'];
-			$url = $selfoss_url . 'favicons/' . $v['icon'];
-			$favicon = base64_encode(file_get_contents($url));
-			$obj = array('id' => $favicon_id, 'data' => image_type_to_mime_type(exif_imagetype($v['icon'])) . ';base64,' . $favicon);
-			$favicons[] = $obj;
-		}
-	}
-
-	$object = array('favicons' => $favicons);
+	$object = getFavicons();
 }
 
 // We don't support links
